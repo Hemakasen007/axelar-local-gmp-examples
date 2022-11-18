@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({path: '.env'});
 const { createAndExport, utils: { setJSON, deployContract } } = require('@axelar-network/axelar-local-dev');
 const { Wallet, utils: {keccak256, defaultAbiCoder} } = require('ethers');
 

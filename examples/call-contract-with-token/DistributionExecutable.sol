@@ -13,17 +13,32 @@ contract DistributionExecutable is AxelarExecutable {
         gasReceiver = IAxelarGasService(gasReceiver_);
     }
 
+    //create invoices for the message sent
+
+    struct Invoice{
+        address senderAddress;
+        address[] destinationAddresses;
+        string message;
+        address token;
+        uint256 amount;
+
+    }
+
+    Invoice[] invoices;
+
+
     function sendToMany(
         string memory destinationChain,
         string memory destinationAddress,
         address[] calldata destinationAddresses,
         string memory symbol,
+        string memory message,
         uint256 amount
     ) external payable {
         address tokenAddress = gateway.tokenAddresses(symbol);
         IERC20(tokenAddress).transferFrom(msg.sender, address(this), amount);
         IERC20(tokenAddress).approve(address(gateway), amount);
-        bytes memory payload = abi.encode(destinationAddresses);
+        bytes memory payload = abi.encode(destinationAddresses, msg.sender, message);
         if (msg.value > 0) {
             gasReceiver.payNativeGasForContractCallWithToken{ value: msg.value }(
                 address(this),
@@ -45,12 +60,20 @@ contract DistributionExecutable is AxelarExecutable {
         string calldata tokenSymbol,
         uint256 amount
     ) internal override {
-        address[] memory recipients = abi.decode(payload, (address[]));
+        (address[] memory recipients, address senderAddress, string memory message) = abi.decode(payload, (address[], address, string));
         address tokenAddress = gateway.tokenAddresses(tokenSymbol);
-
+        saveInvoice(senderAddress, recipients, tokenAddress, message, amount);
         uint256 sentAmount = amount / recipients.length;
         for (uint256 i = 0; i < recipients.length; i++) {
             IERC20(tokenAddress).transfer(recipients[i], sentAmount);
         }
+    }
+
+
+    function saveInvoice(address senderAddress, address[] memory destinations, address tokenContract, 
+    string memory message, uint256 amount) private {
+        invoices.push(
+            Invoice(senderAddress, destinations, message, tokenContract, amount)
+        );
     }
 }
